@@ -47,10 +47,9 @@ class GDPRAPIView(APIView):
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message': f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -64,9 +63,9 @@ class GDPRAPIView(APIView):
                 gdpr = serializer.save()
                 return Response({
                     'status': 'success',
-                    'message': 'gdpr created successfully',
+                    'message': f'{gdpr} created',
                     'data': serializer.data
-                }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_200_OK)
 
             return Response({
                 'status': 'error',
@@ -75,13 +74,11 @@ class GDPRAPIView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print(f'Server error: {str(e)}')
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message': f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     def put(self, request, pk):
         return self._update_gdpr(request, pk, partial=False)
 
@@ -97,7 +94,7 @@ class GDPRAPIView(APIView):
                 gdpr = serializer.save()
                 return Response({
                     'status': 'success',
-                    'message': 'gdpr Request updated successfully',
+                    'message':  f'{gdpr} updated ',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
 
@@ -114,10 +111,9 @@ class GDPRAPIView(APIView):
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message': f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -130,19 +126,19 @@ class GDPRAPIView(APIView):
             gdpr.delete()
             return Response({
                 'status': 'success',
-                'message': 'gdpr Request deleted successfully',
-            }, status=status.HTTP_204_NO_CONTENT)
+                'message': f'{gdpr} deleted ',
+                'data':'None'
+            }, status=status.HTTP_200_OK)
 
         except GDPRRequestModel.DoesNotExist:
             return Response({
                 'status': 'error',
                 'message': 'gdpr Request not found',
-                'data': None
+                'data': 'None'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
-                'data': None
+                'message': f'An unexpected internal server error occurred: {str(e)}',
+                'data': 'None'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

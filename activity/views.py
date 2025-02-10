@@ -16,7 +16,7 @@ class ActivityView(APIView):
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     search_fields = [ 'id', 'activity_type', 'language', 'activity', 'brand', 'who', 
          'completion_check', 'send_reminder']
-    ordering_fields = ['id', 'activity_type', 'language', 'activity', 'brand', 'who', 
+    ordering_fields = ['id','activity_name','activity_description','activity_type', 'language', 'activity', 'brand', 'who', 
          'completion_check', 'send_reminder',]
     filterset_fields = ['id', 'activity_type', 'language', 'activity', 'brand', 'who', 
         'completion_check']
@@ -50,10 +50,10 @@ class ActivityView(APIView):
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
+            print('server error:', str(e))
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message':  f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -67,11 +67,12 @@ class ActivityView(APIView):
 
             if serializer.is_valid():
                 activity = serializer.save()
+                print('activity=>',activity)
                 return Response({
                     'status': 'success',
-                    'message': 'activity created successfully',
+                    'message': f'{activity} activity created',
                     'data': serializer.data
-                }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_200_OK)
             print("serializer",serializer)
             return Response({
                 'status': 'error',
@@ -80,10 +81,10 @@ class ActivityView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print(f'Server error: {str(e)}')
+            print('server error:', str(e))
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message':  f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -103,7 +104,7 @@ class ActivityView(APIView):
                 activity = serializer.save()
                 return Response({
                     'status': 'success',
-                    'message': 'activity updated successfully',
+                    'message': f'{activity} activity updated',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
 
@@ -120,10 +121,10 @@ class ActivityView(APIView):
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
+            print('server error:', str(e))
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message':  f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -131,27 +132,23 @@ class ActivityView(APIView):
         try:
             print("pk=>",pk)
             activity = Activity.objects.get(id=pk)
-            # activity.delete()
-            
-            # activity.is_deleted = 1
-            # activity.is_active = 0  
             activity.delete()
             return Response({
                 'status': 'success',
-                'message': 'activity deleted successfully',
-                # 'data': None
-            }, status=status.HTTP_204_NO_CONTENT)
-
+                'message': f'{activity} activity deleted',
+                'data': 'None'
+            }, status=status.HTTP_200_OK)
+            
         except Activity.DoesNotExist:
             return Response({
                 'status': 'error',
                 'message': 'activity not found',
-                'data': None
+                'data': 'None'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            print(f'Server error: {str(e)}')
+            print('server error:', str(e))
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
-                'data': None
+                'message':  f'An unexpected internal server error occurred: {str(e)}',
+                'data': 'None'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

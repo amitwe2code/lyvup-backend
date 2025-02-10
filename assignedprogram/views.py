@@ -1,51 +1,50 @@
-from rest_framework.views import APIView
+from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter, OrderingFilter
-from .models import ConsentModel
-from .serializers import ConsentSerializer
+from .models import AssignedProgramModel
+from .serializers import AssignedProgramSerializer
 from lyvupapp.pagination import Pagination
-
-
-class ConsentAPIView(APIView):
+# from notification.utils import create_notification
+from rest_framework.views import APIView
+# Create your views here.
+class AssigendProgramView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
-    search_fields = ['id','user_id' ]
-    ordering_fields = ['id','user_id','consent_status','consent_date' ]
-    filterset_fields = ['id','user_id','consent_status','consent_date' ]
+    search_fields = ['id','program_id','assign_to' ]
+    ordering_fields = ['id','program_id','assign_to','assign_type' ]
+    filterset_fields = ['id','program_id','assign_to','assign_type' ]
     pagination_class = Pagination
 
     def get(self, request, pk=None):
         try:
             if pk:
-                consent = ConsentModel.objects.get(id=pk)
-                serializer = ConsentSerializer(consent, context={'request': request})
+                assignedProgram = AssignedProgramModel.objects.get(id=pk)
+                serializer = AssignedProgramSerializer(assignedProgram, context={'request': request})
                 return Response({
                     'status': 'success',
-                    'message': 'Consent retrieved successfully',
+                    'message': 'assignedProgram retrieved successfully',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
 
-            consents = ConsentModel.objects.all().order_by('id')
+            assignedPrograms = AssignedProgramModel.objects.all().order_by('id')
             
-            consents = DjangoFilterBackend().filter_queryset(request, consents, self)
-            consents = SearchFilter().filter_queryset(request, consents, self)
-            consents = OrderingFilter().filter_queryset(request, consents, self)
+            assignedPrograms = DjangoFilterBackend().filter_queryset(request, assignedPrograms, self)
+            assignedPrograms = SearchFilter().filter_queryset(request, assignedPrograms, self)
+            assignedPrograms = OrderingFilter().filter_queryset(request, assignedPrograms, self)
             paginator = self.pagination_class()
-            paginated_consents = paginator.paginate_queryset(consents, request)
-            print('data1=>',paginated_consents[0].consent_type)
-            serializer = ConsentSerializer(paginated_consents, many=True, context={'request': request})
-            print('data2=>',serializer.data[0])
+            paginated_assignedPrograms = paginator.paginate_queryset(assignedPrograms, request)
+            serializer = AssignedProgramSerializer(paginated_assignedPrograms, many=True, context={'request': request})
             return paginator.get_paginated_response(serializer.data)
 
-        except ConsentModel.DoesNotExist:
+        except AssignedProgramModel.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': 'consent not found',
+                'message': 'assignedProgram Request not found',
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -59,13 +58,21 @@ class ConsentAPIView(APIView):
         try:
             data = request.data
             print('data=',data)
-            serializer = ConsentSerializer(data=data, context={'request': request})
+            serializer = AssignedProgramSerializer(data=data, context={'request': request})
+            # notification = create_notification(
+            #     from_id=25,  # Sender (admin or the current logged in user)
+            #     from_type='superadmin',         # Sender type (can be 'user', 'admin', etc.)
+            #     to_id=19,             # Receiver user ID
+            #     to_type='superadmin',            # Receiver type ('user')
+            #     notification_type='program assigned',  # Notification type
+            #     message='program assign to team '           # The notification message
+            # )
 
             if serializer.is_valid():
-                consent = serializer.save()
+                assignedProgram = serializer.save()
                 return Response({
                     'status': 'success',
-                    'message': f'{consent} created ',
+                    'message': 'Assigned Program created ',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
 
@@ -83,21 +90,21 @@ class ConsentAPIView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, pk):
-        return self._update_consent(request, pk, partial=False)
+        return self._update_assignedProgram(request, pk, partial=True)
 
     def patch(self, request, pk):
-        return self._update_consent(request, pk, partial=True)
+        return self._update_assignedProgram(request, pk, partial=True)
 
-    def _update_consent(self, request, pk, partial=False):
+    def _update_assignedProgram(self, request, pk, partial=True):
         try:
-            consent = ConsentModel.objects.get(id=pk)
-            serializer = ConsentSerializer(consent, data=request.data, partial=partial, context={'request': request})
+            assignedProgram = AssignedProgramModel.objects.get(id=pk)
+            serializer = AssignedProgramSerializer(assignedProgram, data=request.data, partial=partial, context={'request': request})
 
             if serializer.is_valid():
-                consent = serializer.save()
+                assignedProgram = serializer.save()
                 return Response({
                     'status': 'success',
-                    'message':  f'{consent} updated ',
+                    'message': 'Assigned Program updated ',
                     'data': serializer.data
                 }, status=status.HTTP_200_OK)
 
@@ -107,10 +114,10 @@ class ConsentAPIView(APIView):
                 'data': serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        except ConsentModel.DoesNotExist:
+        except AssignedProgramModel.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': 'consent not found',
+                'message': 'assignedProgram Request not found',
                 'data': None
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -122,18 +129,21 @@ class ConsentAPIView(APIView):
 
     def delete(self, request, pk):
         try:
-            consent = ConsentModel.objects.get(id=pk)
-            consent.delete()
+            assignedProgram = AssignedProgramModel.objects.get(id=pk)
+            # assignedProgram.is_deleted = True
+            assignedProgram.is_deleted = 1 
+
+            assignedProgram.delete()
             return Response({
                 'status': 'success',
-                'message': f'{consent} deleted ',
+                'message': 'Assigned Program deleted ',
                 'data':'None'
             }, status=status.HTTP_200_OK)
 
-        except ConsentModel.DoesNotExist:
+        except AssignedProgramModel.DoesNotExist:
             return Response({
                 'status': 'error',
-                'message': 'consent not found',
+                'message': 'assignedProgram Request not found',
                 'data': 'None'
             }, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -142,4 +152,3 @@ class ConsentAPIView(APIView):
                 'message': f'An unexpected internal server error occurred: {str(e)}',
                 'data': 'None'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    

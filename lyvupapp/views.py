@@ -8,17 +8,20 @@ from userapp.models import UserModel
 from mailersend import emails
 from django.conf import settings
 from .mail_service import mail_service
-from .mail_service import MailerSendService
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.tokens import default_token_generator  
 from django.utils.http import urlsafe_base64_encode  
 from .serializers import ForgotPasswordSerializer,ResetPasswordSerializer,LoginSerializer
 from rest_framework.permissions import IsAuthenticated
-# from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from userapp.serializers import UserSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.authtoken.models import Token
 
 
 class LoginView(APIView):
@@ -39,7 +42,6 @@ class LoginView(APIView):
             
             try:
                 user = UserModel.objects.get(email=email)
-                print('password in user=>',user.password)
             except UserModel.DoesNotExist:
                 return Response({
                     'status': 'error',
@@ -94,7 +96,7 @@ class LoginView(APIView):
                 'status': 'error',
                 'code': 'INTERNAL_SERVER_ERROR',
                 'message': 'something goes to wrong',
-                'errors': str(e),
+                'errors': str(e),   
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
@@ -125,7 +127,7 @@ class SignupView(APIView):
                     'status': 'success',
                     'message': 'User created successfully',
                     'data': serializer.data
-                }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_200_OK)
             print('any serailizer error')
             return Response({
                 'status': 'error',
@@ -147,46 +149,28 @@ class ForgotPasswordView(APIView):
         serializer = ForgotPasswordSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
-            print('email in forget=',email)
             user = get_user_model().objects.get(email=email)
-        print('request come ')
         token = default_token_generator.make_token(user)
         uid = urlsafe_base64_encode(str(user.pk).encode())
         reset_url = f"{settings.FRONTEND_URL}?uid={uid}&token={token}"
         print(f"Generated reset URL: {reset_url}")
-        mail_body = {
-            "subject": "Password Reset Request",
-            "html_content": f"<h1>Password Reset</h1><p>Click the link below to reset your password:</p><p><a href='{reset_url}'>Reset Password</a></p>",
-            "plaintext_content": f"Password Reset: Visit the following link to reset your password: {reset_url}",
-            "mail_from": {
-                "name": "Your App",
-                "email": "MS_GTsCGY@trial-pxkjn41epk6lz781.mlsender.net"
-            },
-            "recipients": [{
-                "email": user.email
-            }]
-        }
         try:
-            mail_service = MailerSendService()  
-            response = mail_service.send_email(mail_body) 
-            if response.status_code == 202:  
-                return Response({
+            # mail_send for forget 
+            response = mail_service.forget_mail({'email':user.email,'url':reset_url}) 
+            # print('response=>',response)
+            return Response({
                     'status': 'success',
-                    'message': 'Password reset email sent successfully',
-                    'reset_url': reset_url
+                    'message': 'Password reset email sent successfully in your mail',
+                    # 'reset_url': reset_url
                 }, status=status.HTTP_200_OK)
-            else:
-                return Response({
-                    'status': 'error',
-                    'message': f"Failed to send email. Status code: {response.status_code}, Response: {response.text}",
-                    'data': None
-                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
         except Exception as e:
             return Response({
                 'status': 'error',  
                 'message': f"Error sending email: {str(e)}",
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 class ResetPasswordView(APIView):
    def post(self, request, uidb64, token):
         try:
@@ -236,6 +220,7 @@ class LogoutView(APIView):
                     'data': None
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+            # Blacklist the refresh token
             try:
                 refresh = RefreshToken(refresh_token)
                 refresh.blacklist()  
@@ -246,10 +231,10 @@ class LogoutView(APIView):
                     'data': None
                 }, status=status.HTTP_400_BAD_REQUEST)
 
+            # Blacklist the access token
             try:
                 access = AccessToken(access_token)
-               
-                self.blacklist_access_token(access_token)  
+                self.blacklist_access_token(access)  
             except TokenError as e:
                 return Response({
                     'status': 'error',
@@ -270,5 +255,27 @@ class LogoutView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def blacklist_access_token(self, access_token):
-        from datetime import datetime
-        
+        OutstandingToken.objects.filter(token=access_token).update(blacklisted=True)
+        print('run ---------------------')
+
+class TokenValidationView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        # Agar token valid hai, request.auth mein user object hoga
+        user = request.user  # Authenticated user
+        print('request token user =>',user)
+        if user.is_authenticated:
+            return Response({
+                "status": "success",
+                "message": "Token is valid.",
+                "user": user.name
+            },status=status.HTTP_200_OK)
+        else:
+            print('not authenticate')
+            return Response({
+                'status':'expired',
+                'message':'session expird',
+                'data':AuthenticationFailed("Token is invalid or expired.")
+            },status=status.HTTP_201_CREATED)

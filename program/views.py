@@ -40,44 +40,68 @@ class AddProgramView(APIView):
                     week_no=1,
                     program_id=program)
                     print('response in programactivity create in program',response)
-                   
-            
+                
                 return Response({
                     'status': 'success',
-                    'message': 'Program created successfully',
+                    'message': f'{program} program created ',
                     'data': {'id': program.id,
                              'name': serial_data.get("name"),
                              'description': serial_data.get("description"),
                              'written_by': serial_data.get("written_by"),
                              'version': serial_data.get("version"),
                              'price': serial_data.get("price")}
-                }, status=status.HTTP_201_CREATED)
+                }, status=status.HTTP_200_OK)
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'data': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             print(f'Server error: {str(e)}')
             return Response({
                 'status': 'error',
-                'message': 'There is some server error',
+                'message':  f'An unexpected internal server error occurred: {str(e)}',
                 'data': None
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     def get(self, request, pk=None):
-        if pk:
-            try:
-                program = Program.objects.get(pk=pk, is_deleted=0)
-                serializer = GetProgramSerializer(program)
-                return Response(serializer.data)
-            except Program.DoesNotExist:
-                return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            programs = Program.objects.filter(is_deleted=0)
-            programs = DjangoFilterBackend().filter_queryset(request, programs, self)
-            programs = SearchFilter().filter_queryset(request, programs, self)
-            programs = OrderingFilter().filter_queryset(request, programs, self)
-            paginator = self.pagination_class()
-            paginated_accounts = paginator.paginate_queryset(programs, request)
-            serializer =  GetProgramSerializer(paginated_accounts, many=True)
+        try : 
+            if pk:
+                try:
+                    program = Program.objects.get(pk=pk, is_deleted=0)
+                    serializer = GetProgramSerializer(program)
+                    return  Response({
+                        'status': 'success',
+                        'message': 'Program retrieved successfully',
+                        'data': serializer.data
+                    }, status=status.HTTP_200_OK)
+                except Program.DoesNotExist:
+                    return Response({
+                    'status': 'error',
+                    'message': 'program not found',
+                    'data': 'None'
+                }, status=status.HTTP_404_NOT_FOUND)
+            else:
+                programs = Program.objects.filter(is_deleted=0)
+                programs = DjangoFilterBackend().filter_queryset(request, programs, self)
+                programs = SearchFilter().filter_queryset(request, programs, self)
+                programs = OrderingFilter().filter_queryset(request, programs, self)
+                paginator = self.pagination_class()
+                paginated_accounts = paginator.paginate_queryset(programs, request)
+                serializer =  GetProgramSerializer(paginated_accounts, many=True)
 
-            return paginator.get_paginated_response(serializer.data)
+                return paginator.get_paginated_response(serializer.data)
+        except Program.DoesNotExist:
+            return Response({
+                'status': 'error',
+                'message': 'Program not found',
+                'data': None
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f'An unexpected internal server error occurred: {str(e)}',
+                'data': None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def put(self, request, pk):
         try:
@@ -87,21 +111,55 @@ class AddProgramView(APIView):
             serializer = GetProgramSerializer(program, data=request.data)
             if serializer.is_valid():
                 serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({
+                    'status': 'success',
+                    'message': f'{program} program updated ',
+                    'data': serializer.data
+                }, status=status.HTTP_200_OK)
+            return Response({
+                'status': 'error',
+                'message': 'Validation error',
+                'data': serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
         except Program.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                'status': 'error',
+                'message': 'Program not found',
+                'data': None
+            }, status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, pk):
         try:
             program = Program.objects.get(pk=pk)
-            program.is_deleted = 1
-            program.save()
+            print('request come ',program)
+            # program.is_deleted = 1
+            # program.save()
+            programactivities=ProgramActivityModel.objects.filter(program_id=program)
+            print('programactivities=>',programactivities)
+            for activity in programactivities:
+                print('inside perform')
+                activity.delete()
 
-            program.soft_delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            program.delete()
+            print('response=>',program)
+            return Response({
+                'status': 'success',
+                'message': f'{program} program deleted',
+                'data': 'None'
+            }, status=status.HTTP_200_OK)
         except Program.DoesNotExist:
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({
+                'status': 'error',
+                'message': 'program not found',
+                'data': 'None'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'status': 'error',
+                'message': f'An unexpected internal server error occurred: {str(e)}',
+                'data': 'None'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 class CopyProgram(APIView):
@@ -152,6 +210,7 @@ class CopyProgram(APIView):
             print('copied program=>',copyprogram)
             return Response({
                     'status':'200 ok ',
-                    'message':'Program copied successfully'
+                    'message':f'Program {program} copied successfully',
+                    'data':'none'
                 },status=status.HTTP_200_OK)
                          
